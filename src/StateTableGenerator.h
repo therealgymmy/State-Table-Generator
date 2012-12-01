@@ -1,7 +1,25 @@
+// Copyright (C) 2012 Jimmy Lu //
+
+// Compile time state table generator
+// Refer to doc for more details
+
 #ifndef STATE_TABLE_GENERATOR_H
 #define STATE_TABLE_GENERATOR_H
 
 namespace StateTableGenerator {
+
+//---------------------------Public Api-----------------------------//
+
+template <unsigned InputSize, unsigned StateSize, typename S> struct Table;
+
+template <unsigned InputSize, unsigned StateSize, typename S, typename F>
+constexpr Table<InputSize, StateSize, S> create (F next);
+
+
+
+//-------------------------Implementation---------------------------//
+
+
 
 //  <-- Number Sequence Generator Module --> //
 
@@ -22,38 +40,65 @@ GenerateSequence<N> seq () { return GenerateSequence<N>{}; }
 
 //  <-- Table Module --> //
 
-template <unsigned X, unsigned Y, typename S>
-class Table {
-    class Row {
-        S states_[X];
-    public:
+template <unsigned InputSize, unsigned StateSize, typename S>
+struct Table {
+    struct Row {
+        S states_[InputSize];
         const S& operator[] (unsigned i) const { return states_[i]; }
         S&       operator[] (unsigned i)       { return states_[i]; }
     };
 
-    Row rows_[Y];
-
-public:
     const Row& operator[] (unsigned i) const { return rows_[i]; }
     Row&       operator[] (unsigned i)       { return rows_[i]; }
 
+    Row rows_[StateSize];
+
     typedef S StateType;
 };
+
+template <unsigned InputSize, unsigned StateSize, typename S>
+using TableRow = typename Table<InputSize, StateSize, S>::Row;
 
 
 
 // <-- Table Generation Module -->
 
-template <unsigned X, unsigned Y, typename S, typename F>
+template <unsigned InputSize, unsigned StateSize,
+          typename S, typename F,
+          unsigned... IN>
 constexpr
-Table<X, Y, S> create (S lastState, F next)
+TableRow<InputSize, StateSize, S>
+initExpand (F next, S state, BaseSequence<IN...>)
 {
-    return Table<X, Y, S>{};
+    return TableRow<InputSize, StateSize, S>{{ next(state, IN)... }};
+}
+
+template <unsigned InputSize, unsigned StateSize,
+          typename S, typename F,
+          unsigned... TS, unsigned... IN>
+constexpr
+Table<InputSize, StateSize, S>
+initialize (F next,
+            BaseSequence<TS...>,
+            BaseSequence<IN...> inputs)
+{
+    return Table<InputSize, StateSize, S>{{
+        initExpand<InputSize, StateSize>(next, S(TS), inputs)...
+    }};
+}
+
+template <unsigned InputSize, unsigned StateSize,
+          typename S, typename F>
+constexpr
+Table<InputSize, StateSize, S>
+create (F next)
+{
+    return initialize<InputSize, StateSize, S>(next, seq<StateSize>(), seq<InputSize>());
 }
 
 
 
-}//StateTableGenerator
+}
 
 namespace stg = StateTableGenerator;
 

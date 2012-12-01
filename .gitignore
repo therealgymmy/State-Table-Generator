@@ -1,0 +1,4 @@
+*.log
+graph.exe
+graph
+obj/*

@@ -1,0 +1,88 @@
+require 'rake/clean'
+
+PROJECT_NAME = "StateTableGenerator"
+AUTHOR       = "Jimmy Lu"
+GITHUB       = "https://github.com/BeyondSora/State-Table-Generator"
+
+CC = "g++"
+STANDARD = " -std=c++11 -Wall -Wextra"
+DEFINES = " "
+EXT_DEFINES = ""
+LIB= ""
+
+@CFLAGS = STANDARD + DEFINES + EXT_DEFINES
+
+PROG = "statetable_test"
+SRC = FileList['src/**/*.cpp',
+               'test/**/*.cpp']
+OBJDIR = 'obj'
+OBJ = SRC.collect { |fn| File.join(OBJDIR, File.basename(fn).ext('o')) }
+
+CLEAN.include(OBJ, OBJDIR)
+CLOBBER.include(PROG)
+
+task :default => [:help]
+
+task :help do
+  puts
+  puts "info  -> display project related information"
+  puts "build -> build project for release"
+  puts "debug -> build a debug version of project"
+  puts "run   -> run executable normally"
+  puts "test  -> run executable with valgrind --leak-full=check"
+  puts
+end
+
+task :info do
+  puts
+  puts "Project: #{PROJECT_NAME}"
+  puts "Author:  #{AUTHOR}"
+  puts "LOC:     #{count_loc}"
+  puts "Github:  #{GITHUB}"
+  puts "Summary:"
+  puts "         State Table Generator is a program which builds state table."
+  puts "         For more details, refer to the project's github page."
+  puts
+end
+
+task :build do
+  @CFLAGS += " -D_RELEASE"
+  Rake::Task[PROG].invoke
+end
+
+task :debug do
+  @CFLAGS += " -D_DEBUG"
+  Rake::Task[PROG].invoke
+end
+
+task :run => "build" do
+  sh "./#{PROG}"
+end
+
+task :test => "debug" do
+  sh "valgrind --leak-check=full ./#{PROG}"
+end
+
+file PROG => OBJ do
+  sh "#{CC} #{@CFLAGS} -o #{PROG} #{OBJ} #{LIB}"
+end
+
+directory OBJDIR
+
+rule '.o' => lambda{ |objfile| find_source(objfile) } do |t|
+  Task[OBJDIR].invoke
+  sh "#{CC} #{@CFLAGS} -c -o #{t.name} #{t.source}"
+end
+
+def find_source(objfile)
+  base = File.basename(objfile, '.o')
+  SRC.find { |s| File.basename(s, '.cpp') == base }
+end
+
+def count_loc
+  loc = 0
+  SRC.each { |f|
+    loc += File.foreach(f).inject(0) { |c, line| c + 1 }
+  }
+  return loc
+end
